@@ -1,0 +1,39 @@
+pipeline {
+  agent any
+  environment {
+    IMAGE_NAME = "nodejs-cicd-local"
+    IMAGE_TAG = "v${env.BUILD_NUMBER}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh 'eval $(minikube docker-env)'  // Use Minikube’s Docker daemon
+        sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
+      }
+    }
+
+    stage('Deploy to Minikube') {
+      steps {
+        sh 'sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_NAME:$IMAGE_TAG|g" k8s/deployment.yaml'
+        sh 'kubectl apply -f k8s/'
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ Successfully deployed to Minikube!"
+      sh 'kubectl get svc'
+    }
+    failure {
+      echo "❌ Build or deploy failed."
+    }
+  }
+}
